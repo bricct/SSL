@@ -4,8 +4,8 @@ def encrypt(m, e, N):
     cphr = []
     for i in msg:
         x = (int(i)**e) % N
-        cphr.append(x)
-    return cphr
+        cphr.append(chr(x))
+    return ''.join(cphr)
 
 #given a message m, using the private key d and N return the decrypted plaintext
 def decrypt(m, d, N):
