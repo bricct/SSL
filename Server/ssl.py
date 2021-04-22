@@ -9,7 +9,6 @@ import time
 HOST = '127.0.0.1' 
 PORT = 1024
 
-
 # THIS KEY IS A PLACEHOLDER, IT SHOULD BE REPLACED WHEN WE INTEGRATE ENCRYPTION
 
 PRIVATEKEY = '987654321'
@@ -25,23 +24,19 @@ def sendDefaultResponse(sock, client):
 def sendBadRequestResponse(sock, client, message):
     print('Bad Request received from client', message)
     client.send('ERR: BAD REQUEST, TYPE HELP FOR LIST OF COMMANDS AND USAGE'.encode())
-    handleRequests(sock, client)
 
 def sendLoginResponse(sock, client):
     print('Bad Request received, client is not logged in')
     client.send('ERR: YOU ARE NOT LOGGED IN, PLEASE LOG IN TO MAKE REQUESTS TO THE SERVER'.encode())
-    handleRequests(sock, client)
 
 def sendBadLoginResponse(sock, client):
     print('Bad Login received')
     client.send('null'.encode())
     client.send('ERR: BAD LOGIN, THAT COMBINATION OF USER AND PASSWORD IS NOT FOUND IN OUR DATABASE'.encode())
-    handleRequests(sock, client)
 
 def sendBadTokenResponse(sock, client):
     print('Bad Token received')
     client.send('ERR: BAD/EXPIRED TOKEN, PLEASE LOG IN AGAIN'.encode())
-    handleRequests(sock, client)
 
 
 def sendMsg(sock, client, msg):
@@ -49,7 +44,6 @@ def sendMsg(sock, client, msg):
     # encrypt message with clients public key
     client.send(msg.encode())
     print('sent message to client')
-    #handleRequests(sock, client)
 
 def getUserFromToken(token, df):
     row = df.loc[df['Token'] == token]
@@ -67,6 +61,8 @@ def getUserFromToken(token, df):
         else:    
             return row['User'].item()
 
+def updateToken(user, df):
+    df.loc[df['User'] == user, ['Expires']] = int(time.time()) + 900
 
 def sendLogin(sock, client, msg, df):
    
@@ -84,7 +80,7 @@ def sendLogin(sock, client, msg, df):
 
             newToken = token_hex(64)
             df.loc[df['User'] == user, ['Token']] = newToken
-            df.loc[df['User'] == user, ['Expires']] = int(time.time()) + 900
+            updateToken(user, df)
             sendMsg(sock, client, newToken)
             sendMsg(sock, client, 'Welcome back ' + user + '!')
             saveState(df)
@@ -93,7 +89,7 @@ def sendLogin(sock, client, msg, df):
             sendBadLoginResponse(sock, client)
             return
 
-    handleRequests(sock, client)
+
 
 def sendBalance(sock, client, msg, user, df):
     row = df.loc[df['User'] == user]
@@ -104,7 +100,9 @@ def sendBalance(sock, client, msg, user, df):
         msg = 'ERR: Balance Not Found'
 
     sendMsg(sock, client, msg)
-    handleRequests(sock, client)
+    updateToken(user, df)
+    saveState(df)
+
 
 def sendWithdraw(sock, client, msg, user, df):
     row = df.loc[df['User'] == user]
@@ -122,6 +120,7 @@ def sendWithdraw(sock, client, msg, user, df):
                 msg = 'Successfully withdrew $' + str(amount)
                 df.loc[df['User'] == user, ['Balance']] = balance - amount
             sendMsg(sock, client, msg)
+            updateToken(user, df)
             saveState(df)
 
 
@@ -134,7 +133,6 @@ def sendWithdraw(sock, client, msg, user, df):
         msg = 'ERR: User Not Found'
         sendMsg(sock, client, msg)
 
-    handleRequests(sock, client)
     
 
 def sendDeposit(sock, client, msg, user, df):
@@ -153,6 +151,7 @@ def sendDeposit(sock, client, msg, user, df):
                 msg = 'Successfully deposited $' + str(amount)
                 df.loc[df['User'] == user, ['Balance']] = balance + amount
             sendMsg(sock, client, msg)
+            updateToken(user, df)
             saveState(df)
 
 
@@ -165,7 +164,6 @@ def sendDeposit(sock, client, msg, user, df):
         msg = 'ERR: User Not Found'
         sendMsg(sock, client, msg)
 
-    handleRequests(sock, client)
 
 def sendLogout(sock, client, user, df):
 
@@ -178,7 +176,6 @@ def sendLogout(sock, client, user, df):
     sendMsg(sock, client, msg)
 
     saveState(df)
-    handleRequests(sock, client)
 
 def saveState(df):
     df.to_csv(PATHTOCSV, index=False)
@@ -189,72 +186,86 @@ def handleRequests(sock, client):
 
     df = pd.read_csv(PATHTOCSV)
     print(df)
-    data = None
-    while not data: 
+    while True: 
         data = client.recv(1024)
-    msg = ''
-    print(data.decode())
-    try: 
-        msg = json.loads(data.decode())
-    except:
-        sendBadRequestResponse(sock, client, data.decode())
+        msg = ''
+        print(data.decode())
+        print(df)
+        try: 
+            msg = json.loads(data.decode())
+        except:
+            sendBadRequestResponse(sock, client, data.decode())
+            continue
 
-    if 'request' in msg.keys():
-        request = msg['request']
+        if 'request' in msg.keys():
+            request = msg['request']
 
-        if request == 'login':
-            if 'user' in msg.keys() and 'pass' in msg.keys():
-                sendLogin(sock, client, msg, df)
-            else:
-                sendBadRequestResponse(sock, client, msg)
-                
-        
-        elif request == 'exit':
-            sock.close()
-            saveState(df)
-            return
-        
-        else:
-
-            if 'token' not in msg.keys():
-                sendLoginResponse(sock, client)
-
-            elif len(msg['token']) == 0:
-                sendLoginResponse(sock, client)
-            
-            else:
-                user = getUserFromToken(msg['token'], df)
-
-                if not user:
-                    sendBadTokenResponse(sock, client)
-
-                elif request == 'balance':
-                    sendBalance(sock, client, msg, user, df)
-
-                elif request == 'withdraw':
-                    if 'amount' in msg.keys():
-                        sendWithdraw(sock, client, msg, user, df)
-
-                    else:
-                        sendBadRequestResponse(sock, client, msg)
-
-
-                elif request == 'deposit':
-                    if 'amount' in msg.keys():
-                        sendDeposit(sock, client, msg, user, df)
-
-                    else:
-                        sendBadRequestResponse(sock, client, msg)
-                
-                elif request == 'logout':
-                    sendLogout(sock, client, user, df)
-
-
+            if request == 'login':
+                if 'user' in msg.keys() and 'pass' in msg.keys():
+                    sendLogin(sock, client, msg, df)
+                    continue
                 else:
                     sendBadRequestResponse(sock, client, msg)
+                    continue
+                    
+            
+            elif request == 'exit':
+                sock.close()
+                saveState(df)
+                break
+            
+            else:
 
-    else:
-        sendBadRequestResponse(sock, client, msg)
+                if 'token' not in msg.keys():
+                    sendLoginResponse(sock, client)
+                    continue
+
+                elif len(msg['token']) == 0:
+                    sendLoginResponse(sock, client)
+                    continue
+                
+                else:
+                    user = getUserFromToken(msg['token'], df)
+
+                    if not user:
+                        sendBadTokenResponse(sock, client)
+                        continue
+
+                    elif request == 'balance':
+                        sendBalance(sock, client, msg, user, df)
+                        continue
+
+                    elif request == 'withdraw':
+                        if 'amount' in msg.keys():
+                            sendWithdraw(sock, client, msg, user, df)
+                            continue
+
+                        else:
+                            sendBadRequestResponse(sock, client, msg)
+                            continue
+
+
+                    elif request == 'deposit':
+                        if 'amount' in msg.keys():
+                            sendDeposit(sock, client, msg, user, df)
+                            continue
+
+                        else:
+                            sendBadRequestResponse(sock, client, msg)
+                            continue
+                    
+                    elif request == 'logout':
+                        sendLogout(sock, client, user, df)
+                        continue
+
+
+                    else:
+                        sendBadRequestResponse(sock, client, msg)
+                        continue
+
+        else:
+            sendBadRequestResponse(sock, client, msg)
+            continue
 
 
 

@@ -29,6 +29,7 @@ def sha1(m):
     m2 = pad(m)
     chunks = chunk_m(m2, 64)
     for chunk in chunks:
+        print(chunk)
         w = list(map(lambda x: int(x,2), chunk_m(chunk, 32)))
         while len(w) < 80:
             w.append(0)
