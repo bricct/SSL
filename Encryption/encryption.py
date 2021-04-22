@@ -1,4 +1,4 @@
-#given a message m, using public key e and N
+#given a message m, using public key e and N return the encrypted ciphertext
 def encrypt(m, e, N):
     msg = [ord(c) for c in m]
     cphr = []
@@ -7,6 +7,7 @@ def encrypt(m, e, N):
         cphr.append(x)
     return cphr
 
+#given a message m, using the private key d and N return the decrypted plaintext
 def decrypt(m, d, N):
     pln = []
     for i in m:
@@ -14,3 +15,5 @@ def decrypt(m, d, N):
         pln.append(chr(x))
 
     return ''.join(pln)
+
+
