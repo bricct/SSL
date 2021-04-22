@@ -1,3 +1,4 @@
 @echo off
-python client/client.py
+
+python -m src.Client.client
 pause

@@ -2,7 +2,7 @@
 import random
 
 
-f = open("primes.txt","r")
+f = open("src/Encryption/primes.txt","r")
 large_primes = f.read().split(' ')
 
 #given two numbers n and m returns values gcd, a, and b

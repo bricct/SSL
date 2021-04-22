@@ -1,4 +1,5 @@
 @echo off
-python server/ssl.py
+
+python -m src.Server.ssl
 
 pause
