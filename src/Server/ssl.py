@@ -4,16 +4,25 @@ import random
 import pandas as pd
 from secrets import token_hex
 import time
-
+#import sys
+#sys.path.append('..')
+from src.Encryption.encryption import encrypt, decrypt
+from src.Encryption.key_gen import key_gen
 
 HOST = '127.0.0.1' 
 PORT = 1024
 
 # THIS KEY IS A PLACEHOLDER, IT SHOULD BE REPLACED WHEN WE INTEGRATE ENCRYPTION
 
-PRIVATEKEY = '987654321'
+PUBLICKEY = ''
+PRIVATEKEY = ''
+N = ''
 
-PATHTOCSV = 'Server/Data/data.csv'
+CLIENTPUBLICKEY = ''
+CLIENTPRIVATEKEY = ''
+CLIENTN = ''
+
+PATHTOCSV = 'src/Server/Data/data.csv'
 
 
 ## Default responses from the server to the client
@@ -285,12 +294,24 @@ def handleRequests(sock, client):
 
 
 
-def sendPrivateKey(sock, client):
+def sendPrivateKey(sock, client, msg):
     with client:
 
     # Here we should encrypt private key with the public key sent by client
-
-        client.sendall(PRIVATEKEY.encode())
+        try:
+            CLIENTPUBLICKEY = int(msg['public key'])
+            CLIENTN = int(msg['N'])
+        except:
+            print('key not recieved')
+            sendDefaultResponse(sock, client)
+            return
+        
+        encryptedKey = encrypt(str(PUBLICKEY), CLIENTPUBLICKEY, CLIENTN)
+        encryptedN = encrypt(str(N), CLIENTPUBLICKEY, CLIENTN)
+        print('encryptedKey', encryptedKey)
+        print('encryptedN', encryptedN)
+        client.sendall(encryptedKey.encode())
+        client.sendall(encryptedN.decode())
         while True: 
             
             #Grab Message
@@ -306,7 +327,7 @@ def sendPrivateKey(sock, client):
 
                 # if decrypted key matches we know the client has a working public/private key pair
 
-                if msg['decrypted key'] == PRIVATEKEY:
+                if msg['decrypted key'] == PUBLICKEY:
                     authenticate(sock, client)
                 
                 else:
@@ -340,6 +361,9 @@ if __name__ == '__main__':
     df = pd.read_csv(PATHTOCSV)
     print(df)
 
+    
+    PRIVATEKEY, PUBLICKEY, N = key_gen()
+
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
@@ -361,9 +385,9 @@ if __name__ == '__main__':
                 print('received data:', msg)
                 
                 
-                if 'public key' in msg.keys():
+                if 'public key' and 'N' in msg.keys():
                     #client.sendall('public key received'.encode())
-                    sendPrivateKey(s, client)
+                    sendPrivateKey(s, client, msg)
                     break
                 
                 else:
