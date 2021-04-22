@@ -16,34 +16,48 @@ PRIVATEKEY = '987654321'
 PATHTOCSV = 'Server/Data/data.csv'
 
 
+## Default responses from the server to the client
+
 def sendDefaultResponse(sock, client):
     print('authentication failed')
-    client.sendall('ERR: AUTHENTICATION FAILED'.encode())
+    client.send('ERR: AUTHENTICATION FAILED'.encode())
     sock.close()
 
 def sendBadRequestResponse(sock, client, message):
     print('Bad Request received from client', message)
-    client.send('ERR: BAD REQUEST, TYPE HELP FOR LIST OF COMMANDS AND USAGE'.encode())
+    sendMsg(sock, client, 'ERR: BAD REQUEST, TYPE HELP FOR LIST OF COMMANDS AND USAGE')
 
 def sendLoginResponse(sock, client):
     print('Bad Request received, client is not logged in')
-    client.send('ERR: YOU ARE NOT LOGGED IN, PLEASE LOG IN TO MAKE REQUESTS TO THE SERVER'.encode())
+    sendMsg(sock, client, 'ERR: YOU ARE NOT LOGGED IN, PLEASE LOG IN TO MAKE REQUESTS TO THE SERVER')
 
 def sendBadLoginResponse(sock, client):
     print('Bad Login received')
-    client.send('null'.encode())
-    client.send('ERR: BAD LOGIN, THAT COMBINATION OF USER AND PASSWORD IS NOT FOUND IN OUR DATABASE'.encode())
+    sendMsg(sock, client, 'null')
+    sendMsg(sock, client, 'ERR: BAD LOGIN, THAT COMBINATION OF USER AND PASSWORD IS NOT FOUND IN OUR DATABASE')
 
 def sendBadTokenResponse(sock, client):
     print('Bad Token received')
-    client.send('ERR: BAD/EXPIRED TOKEN, PLEASE LOG IN AGAIN'.encode())
+    sendMsg(sock, client, 'ERR: SESSION ENDED, PLEASE LOG IN AGAIN')
 
 
+
+
+
+
+## SENDS ENCRYPTED RESPONSE TO THE CLIENT
 def sendMsg(sock, client, msg):
 
     # encrypt message with clients public key
     client.send(msg.encode())
     print('sent message to client')
+
+
+def recvMsg(sock, client):
+
+    data = client.recv(1024)
+    return json.loads(data.decode())
+
 
 def getUserFromToken(token, df):
     row = df.loc[df['Token'] == token]
@@ -336,6 +350,7 @@ if __name__ == '__main__':
             
             
             while True: 
+
                 data = client.recv(1024)
                 if not data: 
                     break
