@@ -9,7 +9,16 @@ dev = 1
 
 
 def printHelp():
-    pass
+    print('COMMAND LIST:')
+    print('\thelp\t\t\tdisplays command list')
+    print('\tlogin <user> <pass>\tallows login to remote server')
+    print('\tbalance \t\tdisplays balance of account')
+    print('\tdeposit <amount>\tdeposits money to account')
+    print('\twithdraw <amount>\twithdraws money from account')
+    print('\tlogout\t\t\tlogs out of the current session')
+    print('\texit\t\t\texits the interface')
+    print('\tquit\t\t\tforce quits the interface')
+
 
 def formatMsg(msg, token):
     args = msg.split()
