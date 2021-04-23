@@ -2,6 +2,7 @@ import socket
 import json
 from src.Encryption.encryption import encrypt, decrypt
 from src.Encryption.key_gen import key_gen
+from src.Encryption.hmac import hmac
 
 HOST = '127.0.0.1'
 PORT = 1024
