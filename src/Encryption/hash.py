@@ -54,7 +54,6 @@ def sha1(m):
     #use BytesIO to read message from bytes object m
     m = io.BytesIO(m)
     chunk = m.read(64)
-    print(len(chunk))
     while len(chunk) == 64:
         h = chunk_m(chunk,h)
         msg_len += 64

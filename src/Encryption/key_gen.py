@@ -4,6 +4,8 @@ import random
 
 f = open("src/Encryption/primes.txt","r")
 large_primes = f.read().split(' ')
+f2 = open("src/Encryption/small_primes.txt","r")
+small_primes = f2.read().split(' ')
 
 #given two numbers n and m returns values gcd, a, and b
 #such that gcd = 1 or gcd = 0 if no modular inverse found
@@ -31,7 +33,7 @@ def key_gen():
             break
     N = p*q 
     r = (p-1)*(q-1)
-    e = 37633 #since 37633 is prime and our p and q values are much larger it is both 1<e<r and gcd(e,r)
+    e = int(small_primes[random.randint(0,len(small_primes))]) #since the list we choose from is prime and our p and q values are much larger it is both 1<e<r and gcd(e,r)
     temp = extended_euclid(e,r) #d is found by running extended euclid on e and r values since d = a where a*n + b*m = gcd(n,m)
     d = temp[1] 
 
