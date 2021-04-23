@@ -20,7 +20,6 @@ def hmac(k,m):
 
     #formatting here is concatenating the binary strings of the padded keys with the existing message binary string bin_m 
     #the output of the sha1 function is a hex so there is extra formatting here to turn it back to binary before concatenating the binary strings after the first sha1 call
-    return hash.sha1((opad_k[2:] + bin(int(hash.sha1((ipad_k[2:] + bin_m).encode()),16))[2:] ).encode())
-    # return hash.sha1( bin(opad_k + hash.sha1((ipad_k + bin_m).encode()))) 
+    return hash.sha1((opad_k[2:] + bin(int(hash.sha1((ipad_k[2:] + bin_m).encode()),16))[2:] ).encode()) 
 
 
