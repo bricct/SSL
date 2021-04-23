@@ -7,7 +7,7 @@ from src.Encryption.hmac import hmac
 HOST = '127.0.0.1'
 PORT = 1024
 
-dev = 1
+dev = 0
 
 PUBLICKEY = ''
 PRIVATEKEY = ''
@@ -33,7 +33,7 @@ def printHelp():
 def formatMsg(msg, token):
     msg_len = min(len(msg), 32)
     msg = msg[:msg_len]
-    print(msg)
+    #print(msg)
     args = msg.split()
     function = args[0]
     if function == 'login':
@@ -50,6 +50,25 @@ def formatMsg(msg, token):
     else:
         return {'request' : function, 'token' : token}
     
+
+def decryptAndVerifyMsg(msg, key):
+    decRes = decrypt(data.decode(), PRIVATEKEY, N)
+    decMsgJson = json.loads(decRes)
+    decMsg = ''
+    if 'msg' and 'hmac' in decMsgJson.keys():
+        decMsg = decMsgJson['msg']
+        sMac = decMsgJson['hmac']
+        if hmac(SERVERPUBLICKEY, decMsg) != sMac:
+            decMsg = 'Message from server corrupted'
+            if dev:
+                print(hmac(SERVERPUBLICKEY, decMsg) + ' != ' + sMac)
+        else:
+            if dev:
+                print(hmac(SERVERPUBLICKEY, decMsg) + ' == ' + sMac)
+    else:
+        decMsg = 'Message from server corrupted'
+
+    return decMsg
 
 
 if __name__ == '__main__':
@@ -94,12 +113,13 @@ if __name__ == '__main__':
 
         s.send(msg.encode())
 
-        data = s.recv(1024)
-        
-        msg = decrypt(data.decode(), PRIVATEKEY, N)
+        data = s.recv(2048)
+
+        decMsg = decryptAndVerifyMsg(data, SERVERPUBLICKEY)
 
         #if dev:
-        print('Received: ', msg)
+
+        print('Received: ', decMsg)
 
         token = ''
 
@@ -118,16 +138,18 @@ if __name__ == '__main__':
                 continue
 
             request = json.dumps(res)
-            
-            encReq = encrypt(request, SERVERPUBLICKEY, SERVERN)
+            mac = hmac(PUBLICKEY, request)
+            fullRequest = json.dumps({'msg' : request, 'hmac' : mac})
+            encReq = encrypt(fullRequest, SERVERPUBLICKEY, SERVERN)
 
             s.send(encReq.encode())
-            data = s.recv(2048)
+            data = s.recv(4096)
 
             if dev:
                 print(data.decode())
             if data.decode():
-                decMsg = decrypt(data.decode(), PRIVATEKEY, N)
+                decMsg = decryptAndVerifyMsg(data, SERVERPUBLICKEY)
+
             else:
                 decMsg = ''
 
@@ -135,8 +157,8 @@ if __name__ == '__main__':
                 break
             if msg.split()[0] == 'login':
                 token = decMsg
-                data = s.recv(2048)
-                decMsg = decrypt(data.decode(), PRIVATEKEY, N)
+                data = s.recv(4096)
+                decMsg = decryptAndVerifyMsg(data, SERVERPUBLICKEY)
 
             print(decMsg)
 

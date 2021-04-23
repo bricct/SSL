@@ -25,6 +25,8 @@ CLIENTN = ''
 
 PATHTOCSV = 'src/Server/Data/data.csv'
 
+dev = 1
+
 
 ## Default responses from the server to the client
 
@@ -35,7 +37,7 @@ def sendDefaultResponse(sock, client):
 
 def sendBadRequestResponse(sock, client, message):
     print('Bad Request received from client', message)
-    sendMsg(sock, client, 'ERR: BAD REQUEST, TYPE HELP FOR LIST OF COMMANDS AND USAGE')
+    sendMsg(sock, client, 'ERR: BAD/CORRUPTED REQUEST, TYPE HELP FOR LIST OF COMMANDS AND USAGE')
 
 def sendLoginResponse(sock, client):
     print('Bad Request received, client is not logged in')
@@ -59,16 +61,45 @@ def sendBadTokenResponse(sock, client):
 def sendMsg(sock, client, msg):
 
     # encrypt message with clients public key
-    encMsg = encrypt(msg, CLIENTPUBLICKEY, CLIENTN)
+    mac = hmac(PUBLICKEY, msg)
+    msgJson = json.dumps({'msg' : msg, 'hmac' : mac})
+    encMsg = encrypt(msgJson, CLIENTPUBLICKEY, CLIENTN)
     client.send(encMsg.encode())
     print('sent message to client')
 
 
 def recvMsg(sock, client):
 
-    data = client.recv(2048)
+    data = client.recv(4096)
     decData = decrypt(data.decode(), PRIVATEKEY, N)
-    return decData
+    decMsg = {'request' : 'bad'}
+    try:
+        decJson = json.loads(decData)
+        decMsg = json.loads(decJson['msg'])
+        #print('found a message', decMsg)
+        decHmac = decJson['hmac']
+        
+        #print('found an hmac')
+        #print(type(decHmac))
+        if decHmac != hmac(CLIENTPUBLICKEY, json.dumps(decMsg)):
+
+            print(decHmac + ' != ' +  hmac(CLIENTPUBLICKEY, json.dumps(decMsg)))
+            print('Message authentication failed')
+            if decMsg['request'] == 'login':
+                return json.dumps({'request' : 'login'})
+            
+            return 'Bad'
+        else:
+            if dev:
+                print(decHmac + ' == ' +  hmac(CLIENTPUBLICKEY, json.dumps(decMsg)))
+    except:
+        print('Invalid message received')
+        if decMsg['request'] == 'login':
+            return json.dumps({'request' : 'login'})
+        return 'Bad'
+
+
+    return json.dumps(decMsg)
 
 
 def getUserFromToken(token, df):
@@ -313,8 +344,8 @@ def sendPublicKey(sock, client, msg):
         
         encryptedKey = encrypt(str(PUBLICKEY), CLIENTPUBLICKEY, CLIENTN)
         encryptedN = encrypt(str(N), CLIENTPUBLICKEY, CLIENTN)
-        print('encryptedKey', encryptedKey)
-        print('encryptedN', encryptedN)
+        #print('encryptedKey', encryptedKey)
+        #print('encryptedN', encryptedN)
         client.sendall(encryptedKey.encode())
         client.sendall(encryptedN.encode())
         while True: 
