@@ -24,10 +24,3 @@ def hmac(k,m):
     # return hash.sha1( bin(opad_k + hash.sha1((ipad_k + bin_m).encode()))) 
 
 
-k = b'01010100110100101' #key
-m = b'random test string' #message
-mac = hmac(k,m)
-print(k)
-print(m)
-print(mac)
-print(type(mac))
