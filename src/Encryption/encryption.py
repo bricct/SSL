@@ -10,7 +10,7 @@ def encrypt(m, e, N):
     mlen += msg
     cphr = []
     #add random number of random numbers
-    num_rands = random.randint(1,20)
+    num_rands = random.randint(1,16)
     for i in range(num_rands):
         mlen.append( random.randint(1,120))
     #encrypt everything

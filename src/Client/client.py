@@ -23,13 +23,16 @@ def printHelp():
     print('\tlogin <user> <pass>\tallows login to remote server')
     print('\tbalance \t\tdisplays balance of account')
     print('\tdeposit <amount>\tdeposits money to account')
-    print('\twithdraw <amount>\twithdraws money from account')
+    print('\twithdrw <amount>\twithdraws money from account')
     print('\tlogout\t\t\tlogs out of the current session')
     print('\texit\t\t\texits the interface')
     print('\tquit\t\t\tforce quits the interface')
 
 
 def formatMsg(msg, token):
+    msg_len = min(len(msg), 32)
+    msg = msg[:msg_len]
+    print(msg)
     args = msg.split()
     function = args[0]
     if function == 'login':
@@ -41,7 +44,7 @@ def formatMsg(msg, token):
             passw = args[2]
             return {'request' : function, 'user' : user, 'pass' : passw}
     
-    if function == 'deposit' or function == 'withdraw':
+    if function == 'deposit' or function == 'withdrw':
         return {'request' : function, 'amount' : args[1], 'token' : token}
     else:
         return {'request' : function, 'token' : token}
@@ -52,6 +55,9 @@ if __name__ == '__main__':
 
     PRIVATEKEY, PUBLICKEY, N = key_gen()
 
+    print('Private key', PRIVATEKEY)
+    print('Public key', PUBLICKEY)
+    print('N', N)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
@@ -71,24 +77,27 @@ if __name__ == '__main__':
 
         SERVERPUBLICKEY = int(decrypt(data.decode(), PRIVATEKEY, N))
         data = s.recv(1024)
-        SERVERN = decrypt(int(data.decode()), PRIVATEKEY, N)
+        if dev:
+            print('decoded msg', data.decode())
+            print('decrypted n', decrypt(data.decode(), PRIVATEKEY, N))
+        SERVERN = int(decrypt(data.decode(), PRIVATEKEY, N))
 
 
 
-        d_key = {'decrypted key' : encrypt(str(SERVERPUBLICKEY), SERVERPUBLICKEY, SERVERN)}
+        d_key = {'decrypted key' : str(SERVERPUBLICKEY)}
 
-
+        msg = encrypt(json.dumps(d_key), SERVERPUBLICKEY, SERVERN)
         if dev:
             print('sending decrypted key')
             print(d_key, end = '\n\n')
 
-        s.send(json.dumps(d_key).encode())
+        s.send(msg.encode())
 
         data = s.recv(1024)
         
         msg = decrypt(data.decode(), PRIVATEKEY, N)
 
-
+        #if dev:
         print('Received: ', msg)
 
         token = ''
@@ -109,14 +118,25 @@ if __name__ == '__main__':
 
             request = json.dumps(res)
             
+            encReq = encrypt(request, SERVERPUBLICKEY, SERVERN)
 
-            s.send(request.encode())
-            data = s.recv(1024)
+            s.send(encReq.encode())
+            data = s.recv(2048)
+
+            if dev:
+                print(data.decode())
+            if data.decode():
+                decMsg = decrypt(data.decode(), PRIVATEKEY, N)
+            else:
+                decMsg = ''
+
             if msg == 'exit':
                 break
             if msg.split()[0] == 'login':
-                token = data.decode()
-                data = s.recv(1024)
-            print(data.decode())
+                token = decMsg
+                data = s.recv(2048)
+                decMsg = decrypt(data.decode(), PRIVATEKEY, N)
+
+            print(decMsg)
 
             

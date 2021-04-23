@@ -58,14 +58,16 @@ def sendBadTokenResponse(sock, client):
 def sendMsg(sock, client, msg):
 
     # encrypt message with clients public key
-    client.send(msg.encode())
+    encMsg = encrypt(msg, CLIENTPUBLICKEY, CLIENTN)
+    client.send(encMsg.encode())
     print('sent message to client')
 
 
 def recvMsg(sock, client):
 
-    data = client.recv(1024)
-    return json.loads(data.decode())
+    data = client.recv(2048)
+    decData = decrypt(data.decode(), PRIVATEKEY, N)
+    return decData
 
 
 def getUserFromToken(token, df):
@@ -101,7 +103,7 @@ def sendLogin(sock, client, msg, df):
     else:
         if row['Pass'].item() == passw:
 
-            newToken = token_hex(64)
+            newToken = token_hex(16)
             df.loc[df['User'] == user, ['Token']] = newToken
             updateToken(user, df)
             sendMsg(sock, client, newToken)
@@ -210,14 +212,14 @@ def handleRequests(sock, client):
     df = pd.read_csv(PATHTOCSV)
     print(df)
     while True: 
-        data = client.recv(1024)
+        data = recvMsg(sock, client)
         msg = ''
-        print(data.decode())
+        print(data)
         print(df)
         try: 
-            msg = json.loads(data.decode())
+            msg = json.loads(data)
         except:
-            sendBadRequestResponse(sock, client, data.decode())
+            sendBadRequestResponse(sock, client, data)
             continue
 
         if 'request' in msg.keys():
@@ -258,7 +260,7 @@ def handleRequests(sock, client):
                         sendBalance(sock, client, msg, user, df)
                         continue
 
-                    elif request == 'withdraw':
+                    elif request == 'withdrw':
                         if 'amount' in msg.keys():
                             sendWithdraw(sock, client, msg, user, df)
                             continue
@@ -294,7 +296,9 @@ def handleRequests(sock, client):
 
 
 
-def sendPrivateKey(sock, client, msg):
+def sendPublicKey(sock, client, msg):
+    global CLIENTPUBLICKEY
+    global CLIENTN
     with client:
 
     # Here we should encrypt private key with the public key sent by client
@@ -311,7 +315,7 @@ def sendPrivateKey(sock, client, msg):
         print('encryptedKey', encryptedKey)
         print('encryptedN', encryptedN)
         client.sendall(encryptedKey.encode())
-        client.sendall(encryptedN.decode())
+        client.sendall(encryptedN.encode())
         while True: 
             
             #Grab Message
@@ -319,7 +323,7 @@ def sendPrivateKey(sock, client, msg):
             if not data: 
                 break
             
-            msg = json.loads(data.decode())
+            msg = json.loads(decrypt(data.decode(), PRIVATEKEY, N))
             print('received data:', msg)
 
             
@@ -327,7 +331,7 @@ def sendPrivateKey(sock, client, msg):
 
                 # if decrypted key matches we know the client has a working public/private key pair
 
-                if msg['decrypted key'] == PUBLICKEY:
+                if msg['decrypted key'] == str(PUBLICKEY):
                     authenticate(sock, client)
                 
                 else:
@@ -347,7 +351,7 @@ def authenticate(sock, client):
         print('authenticated!')
 
         # Send Authenticated message so client can start making requests
-        client.sendall('Authenticated!'.encode())
+        sendMsg(sock, client, 'Authenticated!')
 
         # Start accepting requests form the client
         handleRequests(sock, client)
@@ -363,6 +367,10 @@ if __name__ == '__main__':
 
     
     PRIVATEKEY, PUBLICKEY, N = key_gen()
+
+    print('Private key', PRIVATEKEY)
+    print('Public key', PUBLICKEY)
+    print('N', N)
 
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -387,7 +395,7 @@ if __name__ == '__main__':
                 
                 if 'public key' and 'N' in msg.keys():
                     #client.sendall('public key received'.encode())
-                    sendPrivateKey(s, client, msg)
+                    sendPublicKey(s, client, msg)
                     break
                 
                 else:
